@@ -183,6 +183,19 @@ AS $$
 DECLARE
   current_count integer;
 BEGIN
+  -- Prevent reporting yourself
+  IF auth.uid() = p_reported_id THEN
+    RAISE EXCEPTION 'You cannot report yourself';
+  END IF;
+
+  -- Prevent duplicate reports for the same chat room
+  IF EXISTS (
+    SELECT 1 FROM public.reports 
+    WHERE reporter_id = auth.uid() AND room_id = p_room_id
+  ) THEN
+    RAISE EXCEPTION 'You have already reported this session';
+  END IF;
+
   -- Insert the report
   INSERT INTO public.reports (reporter_id, reported_id, room_id, chat_log, reason)
   VALUES (auth.uid(), p_reported_id, p_room_id, p_chat_log, p_reason);
@@ -193,7 +206,7 @@ BEGIN
   WHERE id = p_reported_id
   RETURNING report_count INTO current_count;
 
-  -- Auto-ban at 5 reports
+  -- Auto-ban at 5 unique reports
   IF current_count >= 5 THEN
     UPDATE public.profiles
     SET is_banned  = true,
