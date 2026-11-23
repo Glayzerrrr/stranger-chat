@@ -23,10 +23,8 @@ import type { Message, ChatState } from '@/lib/types';
 
 export default function ChatWindow({
   userId: initialUserId,
-  userEmail: initialUserEmail,
 }: {
   userId?: string;
-  userEmail?: string;
 }) {
   // ---- Current user state ----
   const [currentUserId, setCurrentUserId] = useState<string | null>(initialUserId || null);
@@ -83,15 +81,18 @@ export default function ChatWindow({
       clearInterval(queuePollIntervalRef.current);
       queuePollIntervalRef.current = null;
     }
-    // Tell the partner we left
+    // Tell the partner we left, then remove channel after a short delay
+    // so the broadcast packet actually reaches them before the channel dies
     if (roomChannelRef.current) {
-      roomChannelRef.current.send({
+      const channelToRemove = roomChannelRef.current;
+      channelToRemove.send({
         type: 'broadcast',
         event: 'disconnect',
         payload: {},
       });
-      supabase.removeChannel(roomChannelRef.current);
       roomChannelRef.current = null;
+      // Give Supabase 500ms to deliver the disconnect event
+      setTimeout(() => supabase.removeChannel(channelToRemove), 500);
     }
     // Stop listening for queue matches
     if (queueChannelRef.current) {
@@ -189,11 +190,6 @@ export default function ChatWindow({
   const findMatch = useCallback(async () => {
     if (!currentUserId) return;
     cleanup();
-    if (queuePollIntervalRef.current) {
-      clearInterval(queuePollIntervalRef.current);
-      queuePollIntervalRef.current = null;
-    }
-
     setMessages([]);
     setInputText('');
     setStrangerTyping(false);
@@ -457,7 +453,11 @@ export default function ChatWindow({
         {/* Idle state */}
         {chatState === 'idle' && (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-6xl mb-6">💬</div>
+            <div className="text-6xl mb-6 text-blue-500">
+              <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+              </svg>
+            </div>
             <h2 className="text-2xl font-bold mb-2">Ready to chat?</h2>
             <p className="text-gray-500 mb-8 max-w-sm">
               You&apos;ll be connected with a random stranger for an anonymous
@@ -604,14 +604,14 @@ export default function ChatWindow({
               title="Skip (Esc)"
               className="text-sm text-gray-500 hover:text-yellow-400 transition-colors px-3 py-2.5 cursor-pointer"
             >
-              Skip ⏭
+              Skip
             </button>
             <button
               onClick={handleReport}
               title="Report this user"
               className="text-sm text-gray-500 hover:text-red-400 transition-colors px-2 py-2.5 cursor-pointer"
             >
-              🚩
+              Report
             </button>
           </div>
         )}
@@ -630,7 +630,7 @@ export default function ChatWindow({
                 onClick={handleReport}
                 className="text-sm text-gray-500 hover:text-red-400 transition-colors cursor-pointer"
               >
-                🚩 Report
+                Report
               </button>
             )}
           </div>

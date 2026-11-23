@@ -19,7 +19,6 @@ export default async function ChatPage() {
       return (
         <main className="flex min-h-screen flex-col items-center justify-center px-4">
           <div className="text-center max-w-md p-8 rounded-2xl bg-surface border border-red-500/30">
-            <div className="text-5xl mb-4">🚫</div>
             <h1 className="text-2xl font-bold text-red-400">Account Suspended</h1>
             <p className="text-gray-400 mt-3">
               {profile.ban_reason ||
@@ -31,5 +30,5 @@ export default async function ChatPage() {
     }
   }
 
-  return <ChatWindow userId={user?.id} userEmail={user?.email ?? ''} />;
+  return <ChatWindow userId={user?.id} />;
 }

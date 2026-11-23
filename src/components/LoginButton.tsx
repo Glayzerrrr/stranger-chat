@@ -92,7 +92,6 @@ export default function LoginButton() {
                    px-6 py-4 rounded-xl shadow-lg shadow-blue-600/25 transition-all
                    cursor-pointer disabled:opacity-50 text-base flex items-center justify-center gap-2"
       >
-        <span>⚡</span>
         <span>{loading ? 'Connecting...' : 'Start Chatting Instantly'}</span>
       </button>
 
