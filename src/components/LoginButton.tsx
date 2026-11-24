@@ -8,40 +8,24 @@ export default function LoginButton() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Check if user already has an active session
+  // Check if user already has an active Google session
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+      if (session?.user && !session.user.is_anonymous) {
         window.location.href = '/chat';
       } else {
-        setCheckingSession(false);
+        if (session?.user?.is_anonymous) {
+          // Clear any legacy anonymous session
+          supabase.auth.signOut().then(() => setCheckingSession(false));
+        } else {
+          setCheckingSession(false);
+        }
       }
     }).catch(() => {
       setCheckingSession(false);
     });
   }, []);
-
-  // Instant anonymous chat (100% friction-free like Omegle)
-  const handleInstantChat = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg(null);
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInAnonymously();
-      if (error) {
-        console.error('Anonymous sign in error:', error);
-        setErrorMsg(error.message);
-        setLoading(false);
-      } else if (data?.user) {
-        window.location.href = '/chat';
-      }
-    } catch (err: any) {
-      console.error('Unexpected error:', err);
-      setErrorMsg(err?.message || 'Failed to connect');
-      setLoading(false);
-    }
-  };
 
   // Google OAuth sign-in
   const handleGoogleLogin = async () => {
@@ -84,33 +68,14 @@ export default function LoginButton() {
 
   return (
     <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto">
-      {/* Primary Action: Instant Chat like Omegle */}
-      <button
-        onClick={handleInstantChat}
-        disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold
-                   px-6 py-4 rounded-xl shadow-lg shadow-blue-600/25 transition-all
-                   cursor-pointer disabled:opacity-50 text-base flex items-center justify-center gap-2"
-      >
-        <span>{loading ? 'Connecting...' : 'Start Chatting Instantly'}</span>
-      </button>
-
-      {/* Divider */}
-      <div className="flex items-center gap-3 w-full my-1">
-        <div className="h-px bg-white/10 flex-1" />
-        <span className="text-xs text-gray-500 uppercase tracking-wider">or</span>
-        <div className="h-px bg-white/10 flex-1" />
-      </div>
-
-      {/* Secondary Action: Verified Google Sign In */}
       <button
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="w-full inline-flex items-center justify-center gap-3 bg-surface-lighter hover:bg-[#2e2e2e]
-                   text-gray-200 font-semibold px-6 py-3 rounded-xl border border-white/10
-                   active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 text-sm"
+        className="w-full inline-flex items-center justify-center gap-3 bg-white hover:bg-gray-100
+                   text-gray-900 font-bold px-6 py-4 rounded-xl shadow-lg shadow-white/10
+                   active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 text-base"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -128,7 +93,7 @@ export default function LoginButton() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        Sign in with Google
+        <span>{loading ? 'Connecting...' : 'Sign in with Google'}</span>
       </button>
 
       {errorMsg && (

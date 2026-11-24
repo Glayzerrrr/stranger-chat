@@ -8,7 +8,7 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) redirect('/chat');
+  if (user && !user.is_anonymous) redirect('/chat');
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4">

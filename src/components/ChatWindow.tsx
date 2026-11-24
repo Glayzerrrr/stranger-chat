@@ -47,24 +47,18 @@ export default function ChatWindow({
   const chatLogRef = useRef<Message[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Ensure an authenticated or anonymous session exists
+  // Ensure an authenticated Google session exists
   useEffect(() => {
-    if (!currentUserId) {
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) {
-          setCurrentUserId(user.id);
-        } else {
-          supabase.auth.signInAnonymously().then(({ data: { user: anonUser } }) => {
-            if (anonUser) setCurrentUserId(anonUser.id);
-          });
-        }
-      }).catch(() => {
-        supabase.auth.signInAnonymously().then(({ data: { user: anonUser } }) => {
-          if (anonUser) setCurrentUserId(anonUser.id);
-        });
-      });
-    }
-  }, [currentUserId, supabase]);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user && !user.is_anonymous) {
+        setCurrentUserId(user.id);
+      } else {
+        window.location.href = '/';
+      }
+    }).catch(() => {
+      window.location.href = '/';
+    });
+  }, [supabase]);
 
   // ---- Keep chat log ref in sync (for report submission) ----
   useEffect(() => {
