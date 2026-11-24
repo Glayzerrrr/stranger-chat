@@ -47,31 +47,6 @@ export default async function Home({
 
           <LoginButton />
 
-          <div className="mt-6 border-t border-white/[0.07] pt-5">
-            <ul className="space-y-2.5 text-xs text-zinc-400">
-              <li className="flex items-start gap-2.5">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-                <span>
-                  <strong className="font-medium text-zinc-200">Private by default:</strong>{' '}
-                  Strangers never see your name, email, or photo.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                <span>
-                  <strong className="font-medium text-zinc-200">Verified access:</strong>{' '}
-                  Google login blocks bots and keeps bans permanent.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" />
-                <span>
-                  <strong className="font-medium text-zinc-200">Ephemeral rooms:</strong>{' '}
-                  Messages live in memory and vanish when you skip.
-                </span>
-              </li>
-            </ul>
-          </div>
         </div>
       </div>
     </main>
