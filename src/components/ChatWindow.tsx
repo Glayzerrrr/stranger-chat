@@ -773,7 +773,7 @@ export default function ChatWindow({
               </p>
               <button
                 onClick={findMatch}
-                className="mt-6 w-full cursor-pointer rounded-xl bg-accent px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-accent-hover active:scale-[0.98]"
+                className="mt-6 w-full cursor-pointer rounded-xl bg-accent px-6 py-3.5 text-sm font-bold text-[#0c0c0e] transition-all hover:bg-accent-hover active:scale-[0.98]"
               >
                 Start Chatting
               </button>
@@ -932,7 +932,7 @@ export default function ChatWindow({
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="shrink-0 cursor-pointer rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-accent"
+                className="shrink-0 cursor-pointer rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-[#0c0c0e] transition-all hover:bg-accent-hover active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-accent"
               >
                 Send
               </button>
@@ -944,7 +944,7 @@ export default function ChatWindow({
           <div className="mx-auto flex max-w-2xl items-center justify-center gap-3">
             <button
               onClick={findMatch}
-              className="cursor-pointer rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-accent-hover active:scale-[0.97]"
+              className="cursor-pointer rounded-xl bg-accent px-6 py-2.5 text-sm font-bold text-[#0c0c0e] transition-all hover:bg-accent-hover active:scale-[0.97]"
             >
               New Chat
             </button>

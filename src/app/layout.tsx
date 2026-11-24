@@ -34,7 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body className="min-h-[100dvh] bg-canvas font-sans text-[#f4f4f0] antialiased selection:bg-accent selection:text-white">
+      <body className="min-h-[100dvh] bg-canvas font-sans text-[#f4f4f0] antialiased selection:bg-accent selection:text-[#0c0c0e]">
         {children}
       </body>
     </html>

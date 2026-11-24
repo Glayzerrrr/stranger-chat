@@ -5,7 +5,7 @@
 :root {
   --bg: #0c0c0e;
   --fg: #f4f4f0;
-  --accent: #ff5a26;
+  --accent: #e4e4e7;
 }
 
 html,
@@ -82,6 +82,6 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1.5px solid #ff5a26;
+  border: 1.5px solid #e4e4e7;
   animation: pulse-ring 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }

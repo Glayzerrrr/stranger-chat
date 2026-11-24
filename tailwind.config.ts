@@ -20,9 +20,9 @@ const config: Config = {
           lighter: '#23232b',
         },
         accent: {
-          DEFAULT: '#ff5a26',
-          hover: '#ff7043',
-          muted: 'rgba(255, 90, 38, 0.14)',
+          DEFAULT: '#e4e4e7',
+          hover: '#f4f4f5',
+          muted: 'rgba(228, 228, 231, 0.12)',
         },
       },
     },
