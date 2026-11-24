@@ -893,7 +893,13 @@ export default function ChatWindow({
       </main>
 
       {/* ---- Footer / Composer ---- */}
-      <footer className="shrink-0 border-t border-white/[0.08] bg-surface/95 px-3 py-3 backdrop-blur-md sm:px-6">
+      <footer
+        className={`shrink-0 border-t border-white/[0.08] bg-surface/95 px-3 py-3 backdrop-blur-md sm:px-6 ${
+          chatState === 'idle' || chatState === 'searching'
+            ? 'hidden sm:block'
+            : ''
+        }`}
+      >
         {chatState === 'connected' && (
           <div className="mx-auto max-w-2xl">
             <form onSubmit={sendMessage} className="flex items-center gap-2">
@@ -956,13 +962,11 @@ export default function ChatWindow({
 
         {(chatState === 'idle' || chatState === 'searching') && (
           <div className="text-center font-mono text-[11px] text-zinc-500">
-            <span className="hidden sm:inline">
-              <kbd className="rounded border border-white/10 bg-surface-light px-1.5 py-0.5 text-zinc-400">
-                Esc
-              </kbd>{' '}
-              to skip &middot;{' '}
-            </span>
-            Messages vanish when you disconnect unless reported
+            Press{' '}
+            <kbd className="rounded border border-white/10 bg-surface-light px-1.5 py-0.5 text-zinc-400">
+              Esc
+            </kbd>{' '}
+            to skip anytime
           </div>
         )}
       </footer>
