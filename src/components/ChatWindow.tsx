@@ -42,6 +42,7 @@ export default function ChatWindow({
   const roomChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const queueChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const ghostCheckTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatLogRef = useRef<Message[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +78,10 @@ export default function ChatWindow({
 
   // ---- Cleanup helper ----
   const cleanup = useCallback(() => {
+    if (ghostCheckTimeoutRef.current) {
+      clearTimeout(ghostCheckTimeoutRef.current);
+      ghostCheckTimeoutRef.current = undefined;
+    }
     if (queuePollIntervalRef.current) {
       clearInterval(queuePollIntervalRef.current);
       queuePollIntervalRef.current = null;
@@ -132,10 +137,66 @@ export default function ChatWindow({
       setMessages([]);
       setStrangerTyping(false);
 
+      if (ghostCheckTimeoutRef.current) {
+        clearTimeout(ghostCheckTimeoutRef.current);
+      }
+
+      let partnerActive = false;
+
+      const markPartnerActive = () => {
+        if (!partnerActive) {
+          partnerActive = true;
+          if (ghostCheckTimeoutRef.current) {
+            clearTimeout(ghostCheckTimeoutRef.current);
+            ghostCheckTimeoutRef.current = undefined;
+          }
+        }
+      };
+
+      // Ghost detector: if 8 seconds pass and partner never connects or sends anything,
+      // mark them as disconnected so the user isn't stuck waiting for a ghost
+      ghostCheckTimeoutRef.current = setTimeout(() => {
+        if (!partnerActive) {
+          console.warn('Ghost user detected: partner never connected to room.');
+          setChatState('disconnected');
+          setStrangerTyping(false);
+          if (roomChannelRef.current) {
+            supabase.removeChannel(roomChannelRef.current);
+            roomChannelRef.current = null;
+          }
+        }
+      }, 8000);
+
       const channel = supabase
         .channel(`room:${newRoomId}`)
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          const presentUserIds = Object.values(state).flatMap((presences: any) =>
+            presences.map((p: any) => p.user_id),
+          );
+          if (presentUserIds.includes(newPartnerId)) {
+            markPartnerActive();
+          }
+        })
+        .on('presence', { event: 'join' }, ({ newPresences }) => {
+          if (newPresences?.some((p: any) => p.user_id === newPartnerId)) {
+            markPartnerActive();
+          }
+        })
+        .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+          // If partner socket dropped (tab closed, internet lost, phone locked),
+          // Supabase Realtime immediately informs us!
+          if (leftPresences?.some((p: any) => p.user_id === newPartnerId)) {
+            setChatState('disconnected');
+            setStrangerTyping(false);
+            if (ghostCheckTimeoutRef.current) clearTimeout(ghostCheckTimeoutRef.current);
+            supabase.removeChannel(channel);
+            roomChannelRef.current = null;
+          }
+        })
         .on('broadcast', { event: 'message' }, ({ payload }) => {
           if (payload.sender_id !== currentUserId) {
+            markPartnerActive();
             // Stranger sent a message: immediately clear stranger's typing indicator
             clearTimeout(typingTimeoutRef.current);
             setStrangerTyping(false);
@@ -154,6 +215,7 @@ export default function ChatWindow({
         })
         .on('broadcast', { event: 'typing' }, ({ payload }) => {
           if (payload.sender_id !== currentUserId) {
+            markPartnerActive();
             setStrangerTyping(true);
             clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(
@@ -171,10 +233,19 @@ export default function ChatWindow({
         .on('broadcast', { event: 'disconnect' }, () => {
           setChatState('disconnected');
           setStrangerTyping(false);
+          if (ghostCheckTimeoutRef.current) clearTimeout(ghostCheckTimeoutRef.current);
           supabase.removeChannel(channel);
           roomChannelRef.current = null;
         })
-        .subscribe();
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED' && currentUserId) {
+            try {
+              await channel.track({ user_id: currentUserId });
+            } catch (err) {
+              console.warn('Presence track error:', err);
+            }
+          }
+        });
 
       roomChannelRef.current = channel;
 
@@ -262,7 +333,15 @@ export default function ChatWindow({
       queueChannelRef.current = channel;
 
       // Fast polling fallback: checks DB every 1.5s in case realtime event was missed
+      let pollTicks = 0;
       queuePollIntervalRef.current = setInterval(async () => {
+        pollTicks++;
+
+        // Send a heartbeat every ~4.5 seconds to keep our queue row alive
+        if (pollTicks % 3 === 0 && currentUserId) {
+          supabase.rpc('queue_heartbeat', { searching_user_id: currentUserId }).then();
+        }
+
         const { data: queueRow } = await supabase
           .from('queue')
           .select('room_id, matched_with')
