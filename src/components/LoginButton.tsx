@@ -8,26 +8,25 @@ export default function LoginButton() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Check if user already has an active Google session
+  // Redirect automatically if user already has an active Google session
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && !session.user.is_anonymous) {
-        window.location.href = '/chat';
-      } else {
-        if (session?.user?.is_anonymous) {
-          // Clear any legacy anonymous session
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user && !session.user.is_anonymous) {
+          window.location.href = '/chat';
+        } else if (session?.user?.is_anonymous) {
           supabase.auth.signOut().then(() => setCheckingSession(false));
         } else {
           setCheckingSession(false);
         }
-      }
-    }).catch(() => {
-      setCheckingSession(false);
-    });
+      })
+      .catch(() => {
+        setCheckingSession(false);
+      });
   }, []);
 
-  // Google OAuth sign-in
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
@@ -47,35 +46,32 @@ export default function LoginButton() {
       } else if (data?.url) {
         window.location.href = data.url;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to connect to Google';
       console.error('Unexpected login error:', err);
-      setErrorMsg(err?.message || 'Failed to sign in');
+      setErrorMsg(message);
       setLoading(false);
     }
   };
 
   if (checkingSession) {
     return (
-      <div className="flex items-center justify-center gap-2 text-gray-400 py-4">
-        <svg className="w-5 h-5 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
+      <div className="flex items-center justify-center gap-2.5 py-3.5 text-sm text-zinc-400">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-600 border-t-accent" />
         <span>Checking session...</span>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto">
+    <div className="flex w-full flex-col items-center gap-3">
       <button
         onClick={handleGoogleLogin}
         disabled={loading}
-        className="w-full inline-flex items-center justify-center gap-3 bg-white hover:bg-gray-100
-                   text-gray-900 font-bold px-6 py-4 rounded-xl shadow-lg shadow-white/10
-                   active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 text-base"
+        className="inline-flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl bg-[#f4f4f0] px-5 py-3.5 text-sm font-bold text-[#0c0c0e] transition-all hover:bg-white active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -93,11 +89,11 @@ export default function LoginButton() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        <span>{loading ? 'Connecting...' : 'Sign in with Google'}</span>
+        <span>{loading ? 'Connecting...' : 'Continue with Google'}</span>
       </button>
 
       {errorMsg && (
-        <p className="text-red-400 text-xs text-center bg-red-950/40 border border-red-500/30 px-3 py-1.5 rounded-lg w-full">
+        <p className="w-full rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-center text-xs text-red-300">
           {errorMsg}
         </p>
       )}

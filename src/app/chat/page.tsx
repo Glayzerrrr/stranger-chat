@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import ChatWindow from '@/components/ChatWindow';
+import SuspendedView from '@/components/SuspendedView';
 
 export default async function ChatPage() {
   const supabase = await createClient();
@@ -20,17 +21,7 @@ export default async function ChatPage() {
     .single();
 
   if (profile?.is_banned) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center px-4">
-        <div className="text-center max-w-md p-8 rounded-2xl bg-surface border border-red-500/30">
-          <h1 className="text-2xl font-bold text-red-400">Account Suspended</h1>
-          <p className="text-gray-400 mt-3">
-            {profile.ban_reason ||
-              'Your account has been suspended due to violations of our community guidelines.'}
-          </p>
-        </div>
-      </main>
-    );
+    return <SuspendedView reason={profile.ban_reason} />;
   }
 
   return <ChatWindow userId={user.id} />;

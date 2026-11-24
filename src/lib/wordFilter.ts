@@ -24,14 +24,11 @@ export function filterMessage(text: string): {
   filtered: string;
   clean: boolean;
 } {
-  let filtered = text;
   let clean = true;
-
-  // Strip URLs
-  if (URL_REGEX.test(filtered)) {
-    filtered = filtered.replace(URL_REGEX, '[link removed]');
+  const filtered = text.replace(URL_REGEX, () => {
     clean = false;
-  }
+    return '[link removed]';
+  });
 
   // Check for spam keywords (case-insensitive)
   const lower = filtered.toLowerCase();

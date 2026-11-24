@@ -2,7 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import LoginButton from '@/components/LoginButton';
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: { error?: string };
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -10,58 +14,63 @@ export default async function Home() {
 
   if (user && !user.is_anonymous) redirect('/chat');
 
+  const authError = searchParams?.error === 'auth';
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="text-center max-w-lg">
-        {/* Logo */}
-        <div className="mb-8">
-          <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight">
-            Stranger<span className="text-blue-500">Chat</span>
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center bg-canvas bg-dot-grid px-4 py-12">
+      <div className="w-full max-w-md">
+        {/* Brand Header */}
+        <div className="mb-8 text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-zinc-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            1-on-1 Text Chat
+          </div>
+
+          <h1 className="text-4xl font-extrabold tracking-tight text-[#f4f4f0] sm:text-5xl">
+            StrangerChat<span className="text-accent">.</span>
           </h1>
-          <p className="mt-3 text-lg text-gray-400">
-            Talk to random strangers anonymously.
+
+          <p className="mt-3 text-base leading-relaxed text-zinc-400">
+            Talk one-on-one with someone random.
             <br />
-            No names, no profiles — just conversations.
+            No profiles, no history — just live text.
           </p>
         </div>
 
-        {/* Login */}
-        <LoginButton />
+        {/* Auth Card */}
+        <div className="rounded-2xl border border-white/[0.09] bg-surface p-6 shadow-2xl sm:p-7">
+          {authError && (
+            <div className="mb-4 rounded-xl border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-center text-xs text-red-300">
+              Sign-in did not complete. Please try again.
+            </div>
+          )}
 
-        {/* Fine print */}
-        <p className="mt-8 text-sm text-gray-600 leading-relaxed">
-          We use Google sign-in only to verify you&apos;re human and to enforce
-          bans.
-          <br />
-          Your identity is <strong>never</strong> shown to the person you chat
-          with.
-        </p>
+          <LoginButton />
 
-        {/* Features */}
-        <div className="mt-12 grid grid-cols-3 gap-6 text-center text-gray-500 text-sm">
-          <div>
-            <div className="text-2xl mb-1 text-gray-400 font-bold">
-              <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-              </svg>
-            </div>
-            <span>Anonymous</span>
-          </div>
-          <div>
-            <div className="text-2xl mb-1 text-gray-400 font-bold">
-              <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
-              </svg>
-            </div>
-            <span>Instant</span>
-          </div>
-          <div>
-            <div className="text-2xl mb-1 text-gray-400 font-bold">
-              <svg className="w-6 h-6 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-              </svg>
-            </div>
-            <span>Moderated</span>
+          <div className="mt-6 border-t border-white/[0.07] pt-5">
+            <ul className="space-y-2.5 text-xs text-zinc-400">
+              <li className="flex items-start gap-2.5">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                <span>
+                  <strong className="font-medium text-zinc-200">Private by default:</strong>{' '}
+                  Strangers never see your name, email, or photo.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                <span>
+                  <strong className="font-medium text-zinc-200">Verified access:</strong>{' '}
+                  Google login blocks bots and keeps bans permanent.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-400" />
+                <span>
+                  <strong className="font-medium text-zinc-200">Ephemeral rooms:</strong>{' '}
+                  Messages live in memory and vanish when you skip.
+                </span>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
