@@ -19,7 +19,7 @@ export default async function ChatPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('is_banned, ban_reason')
+    .select('is_banned, ban_reason, is_admin')
     .eq('id', user.id)
     .single();
 
@@ -27,5 +27,5 @@ export default async function ChatPage() {
     return <SuspendedView reason={profile.ban_reason} userId={user.id} />;
   }
 
-  return <ChatWindow userId={user.id} />;
+  return <ChatWindow userId={user.id} isAdmin={Boolean(profile?.is_admin)} />;
 }

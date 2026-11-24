@@ -7,6 +7,7 @@ import {
   useCallback,
   type FormEvent,
 } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { filterMessage } from '@/lib/wordFilter';
 import type { Message, ChatState } from '@/lib/types';
@@ -37,8 +38,10 @@ function formatTime(timestamp: number): string {
 
 export default function ChatWindow({
   userId: initialUserId,
+  isAdmin = false,
 }: {
   userId?: string;
+  isAdmin?: boolean;
 }) {
   // ---- Current user & moderation state ----
   const [currentUserId, setCurrentUserId] = useState<string | null>(
@@ -55,12 +58,15 @@ export default function ChatWindow({
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [searchSeconds, setSearchSeconds] = useState(0);
 
-  // ---- Report modal & feedback toast ----
+  // ---- Report & Admin Ban modal + feedback toast ----
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
   const [reportDetails, setReportDetails] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportedRoomId, setReportedRoomId] = useState<string | null>(null);
+  const [adminBanModalOpen, setAdminBanModalOpen] = useState(false);
+  const [adminBanReason, setAdminBanReason] = useState('');
+  const [banningUser, setBanningUser] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     tone: 'neutral' | 'error';
@@ -631,11 +637,46 @@ export default function ChatWindow({
     ],
   );
 
+  // ---- Admin Instant Ban ----
+  const submitAdminBan = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      if (!isAdmin || !partnerId || banningUser) return;
+
+      setBanningUser(true);
+      const { error } = await supabase.rpc('admin_set_ban', {
+        target_user_id: partnerId,
+        ban_status: true,
+        reason: adminBanReason.trim() || 'Suspended by moderator',
+      });
+      setBanningUser(false);
+
+      if (error) {
+        showToast(error.message || 'Could not ban user.', 'error');
+        return;
+      }
+
+      setAdminBanModalOpen(false);
+      setAdminBanReason('');
+
+      if (chatState === 'connected') {
+        showToast('Account permanently banned. Finding next match...');
+        skipChat();
+      } else {
+        showToast('Account permanently banned.');
+      }
+    },
+    [isAdmin, partnerId, banningUser, supabase, adminBanReason, chatState, skipChat, showToast],
+  );
+
   // ---- Global keyboard shortcuts (Esc to skip/cancel/close, Enter on disconnected) ----
   useEffect(() => {
     const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (reportModalOpen) {
+        if (adminBanModalOpen) {
+          e.preventDefault();
+          setAdminBanModalOpen(false);
+        } else if (reportModalOpen) {
           e.preventDefault();
           setReportModalOpen(false);
         } else if (chatState === 'connected') {
@@ -649,6 +690,7 @@ export default function ChatWindow({
         e.key === 'Enter' &&
         chatState === 'disconnected' &&
         !reportModalOpen &&
+        !adminBanModalOpen &&
         document.activeElement?.tagName !== 'BUTTON'
       ) {
         e.preventDefault();
@@ -658,7 +700,14 @@ export default function ChatWindow({
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [reportModalOpen, chatState, skipChat, cancelSearch, findMatch]);
+  }, [
+    adminBanModalOpen,
+    reportModalOpen,
+    chatState,
+    skipChat,
+    cancelSearch,
+    findMatch,
+  ]);
 
   // If account was banned at runtime, render the suspension view
   if (bannedReason) {
@@ -726,6 +775,18 @@ export default function ChatWindow({
 
         {/* Header Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {isAdmin && canReport && (
+            <button
+              onClick={() => {
+                setAdminBanReason('');
+                setAdminBanModalOpen(true);
+              }}
+              title="Permanently ban this user"
+              className="cursor-pointer rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+            >
+              Ban
+            </button>
+          )}
           {canReport && (
             <button
               onClick={openReportModal}
@@ -739,6 +800,14 @@ export default function ChatWindow({
             >
               {alreadyReported ? 'Reported' : 'Report'}
             </button>
+          )}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="rounded-lg border border-white/15 bg-surface-light px-2.5 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-accent transition-colors hover:bg-surface-lighter"
+            >
+              Admin
+            </Link>
           )}
           <button
             onClick={signOut}
@@ -1099,6 +1168,61 @@ export default function ChatWindow({
                     : chatState === 'connected'
                       ? 'Submit & Skip'
                       : 'Submit Report'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* ---- Admin Instant Ban Modal ---- */}
+      {isAdmin && adminBanModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm"
+          onClick={() => !banningUser && setAdminBanModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-red-500/25 bg-surface p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-[#f4f4f0]">
+              Admin: Ban Account
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+              Permanently suspends this stranger&apos;s Google account.
+              {chatState === 'connected' && ' This chat will end immediately.'}
+            </p>
+
+            <form onSubmit={submitAdminBan} className="mt-4 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+                  Ban reason (optional)
+                </label>
+                <input
+                  type="text"
+                  value={adminBanReason}
+                  onChange={(e) => setAdminBanReason(e.target.value)}
+                  maxLength={200}
+                  placeholder="Suspended by moderator"
+                  autoFocus
+                  className="w-full rounded-xl border border-white/10 bg-surface-light px-3.5 py-2.5 text-sm text-[#f4f4f0] placeholder-zinc-500 outline-none focus:border-red-500/50"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAdminBanModalOpen(false)}
+                  disabled={banningUser}
+                  className="cursor-pointer rounded-xl border border-white/10 px-4 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-surface-lighter disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={banningUser}
+                  className="cursor-pointer rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+                >
+                  {banningUser ? 'Banning...' : 'Ban Permanently'}
                 </button>
               </div>
             </form>
