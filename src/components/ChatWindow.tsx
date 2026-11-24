@@ -81,6 +81,8 @@ export default function ChatWindow({
   const ghostCheckTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const activeRoomIdRef = useRef<string | null>(null);
+  const searchAttemptRef = useRef(0);
+  const findMatchRef = useRef<(() => void) | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatLogRef = useRef<Message[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -133,48 +135,53 @@ export default function ChatWindow({
   }, [chatState]);
 
   // ---- Cleanup helper ----
-  const cleanup = useCallback(() => {
-    activeRoomIdRef.current = null;
+  const cleanup = useCallback(
+    (removeFromQueue = true) => {
+      searchAttemptRef.current += 1;
+      activeRoomIdRef.current = null;
 
-    if (ghostCheckTimeoutRef.current) {
-      clearTimeout(ghostCheckTimeoutRef.current);
-      ghostCheckTimeoutRef.current = undefined;
-    }
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = undefined;
-    }
-    if (queuePollIntervalRef.current) {
-      clearInterval(queuePollIntervalRef.current);
-      queuePollIntervalRef.current = null;
-    }
+      if (ghostCheckTimeoutRef.current) {
+        clearTimeout(ghostCheckTimeoutRef.current);
+        ghostCheckTimeoutRef.current = undefined;
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = undefined;
+      }
+      if (queuePollIntervalRef.current) {
+        clearInterval(queuePollIntervalRef.current);
+        queuePollIntervalRef.current = null;
+      }
 
-    // Tell partner we left, then remove channel after a short delay
-    if (roomChannelRef.current) {
-      const channelToRemove = roomChannelRef.current;
-      channelToRemove.send({
-        type: 'broadcast',
-        event: 'disconnect',
-        payload: {},
-      });
-      roomChannelRef.current = null;
-      setTimeout(() => supabase.removeChannel(channelToRemove), 450);
-    }
+      // Tell partner we left, then remove channel after a short delay
+      if (roomChannelRef.current) {
+        const channelToRemove = roomChannelRef.current;
+        channelToRemove.send({
+          type: 'broadcast',
+          event: 'disconnect',
+          payload: {},
+        });
+        roomChannelRef.current = null;
+        setTimeout(() => supabase.removeChannel(channelToRemove), 450);
+      }
 
-    if (queueChannelRef.current) {
-      supabase.removeChannel(queueChannelRef.current);
-      queueChannelRef.current = null;
-    }
+      if (queueChannelRef.current) {
+        supabase.removeChannel(queueChannelRef.current);
+        queueChannelRef.current = null;
+      }
 
-    // PostgREST query builders require .then() to actually execute the request
-    if (currentUserId) {
-      supabase
-        .from('queue')
-        .delete()
-        .eq('user_id', currentUserId)
-        .then(() => {});
-    }
-  }, [supabase, currentUserId]);
+      // Skip queue DELETE when immediately re-entering find_match so it never
+      // races with and deletes the newly inserted queue row
+      if (removeFromQueue && currentUserId) {
+        supabase
+          .from('queue')
+          .delete()
+          .eq('user_id', currentUserId)
+          .then(() => {});
+      }
+    },
+    [supabase, currentUserId],
+  );
 
   // Cleanup on page unload
   useEffect(() => {
@@ -224,7 +231,7 @@ export default function ChatWindow({
         }
       };
 
-      // Ghost detector: if partner never connects to room within 8 seconds, disconnect cleanly
+      // Ghost detector: if partner never connects to room within 12 seconds, disconnect cleanly
       ghostCheckTimeoutRef.current = setTimeout(() => {
         if (!partnerActive && activeRoomIdRef.current === newRoomId) {
           activeRoomIdRef.current = null;
@@ -235,7 +242,7 @@ export default function ChatWindow({
             roomChannelRef.current = null;
           }
         }
-      }, 8000);
+      }, 12000);
 
       const channel = supabase
         .channel(`room:${newRoomId}`)
@@ -336,7 +343,9 @@ export default function ChatWindow({
   // ---- Find a match ----
   const findMatch = useCallback(async () => {
     if (!currentUserId) return;
-    cleanup();
+    cleanup(false);
+    const attemptId = ++searchAttemptRef.current;
+
     setMessages([]);
     setInputText('');
     setStrangerTyping(false);
@@ -349,6 +358,8 @@ export default function ChatWindow({
     const { data, error } = await supabase.rpc('find_match', {
       searching_user_id: currentUserId,
     });
+
+    if (searchAttemptRef.current !== attemptId) return;
 
     if (error) {
       console.error('Match error:', error);
@@ -389,6 +400,7 @@ export default function ChatWindow({
       const channel = supabase
         .channel(channelName)
         .on('broadcast', { event: 'matched' }, ({ payload }) => {
+          if (searchAttemptRef.current !== attemptId) return;
           if (payload?.room_id) {
             if (queuePollIntervalRef.current) {
               clearInterval(queuePollIntervalRef.current);
@@ -408,6 +420,7 @@ export default function ChatWindow({
             filter: `user_id=eq.${currentUserId}`,
           },
           (payload: { new?: { room_id?: string; matched_with?: string } }) => {
+            if (searchAttemptRef.current !== attemptId) return;
             if (payload?.new?.room_id && payload?.new?.matched_with) {
               if (queuePollIntervalRef.current) {
                 clearInterval(queuePollIntervalRef.current);
@@ -426,6 +439,7 @@ export default function ChatWindow({
       // Fast polling fallback + queue heartbeat every ~4.5s
       let pollTicks = 0;
       queuePollIntervalRef.current = setInterval(async () => {
+        if (searchAttemptRef.current !== attemptId) return;
         pollTicks++;
 
         if (pollTicks % 3 === 0 && currentUserId) {
@@ -434,11 +448,13 @@ export default function ChatWindow({
             .then(() => {});
         }
 
-        const { data: queueRow } = await supabase
+        const { data: queueRow, error: pollError } = await supabase
           .from('queue')
           .select('room_id, matched_with')
           .eq('user_id', currentUserId)
-          .single();
+          .maybeSingle();
+
+        if (searchAttemptRef.current !== attemptId) return;
 
         if (queueRow?.room_id && queueRow?.matched_with) {
           if (queuePollIntervalRef.current) {
@@ -450,10 +466,20 @@ export default function ChatWindow({
             supabase.removeChannel(queueChannelRef.current);
             queueChannelRef.current = null;
           }
+          return;
+        }
+
+        // Self-heal if our queue row was cleared while still searching
+        if (!pollError && !queueRow && pollTicks >= 2) {
+          findMatchRef.current?.();
         }
       }, 1500);
     }
   }, [supabase, currentUserId, cleanup, joinRoom, showToast]);
+
+  useEffect(() => {
+    findMatchRef.current = findMatch;
+  }, [findMatch]);
 
   // ---- Send a message ----
   const sendMessage = useCallback(
@@ -526,9 +552,8 @@ export default function ChatWindow({
 
   // ---- Skip / Cancel / Sign out ----
   const skipChat = useCallback(() => {
-    cleanup();
     findMatch();
-  }, [cleanup, findMatch]);
+  }, [findMatch]);
 
   const cancelSearch = useCallback(() => {
     cleanup();
