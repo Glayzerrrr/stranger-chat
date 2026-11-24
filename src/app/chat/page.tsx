@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation';
 import ChatWindow from '@/components/ChatWindow';
 import SuspendedView from '@/components/SuspendedView';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function ChatPage() {
   const supabase = await createClient();
   const {
@@ -21,7 +24,7 @@ export default async function ChatPage() {
     .single();
 
   if (profile?.is_banned) {
-    return <SuspendedView reason={profile.ban_reason} />;
+    return <SuspendedView reason={profile.ban_reason} userId={user.id} />;
   }
 
   return <ChatWindow userId={user.id} />;

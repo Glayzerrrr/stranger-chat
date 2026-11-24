@@ -637,7 +637,12 @@ export default function ChatWindow({
 
   // If account was banned at runtime, render the suspension view
   if (bannedReason) {
-    return <SuspendedView reason={bannedReason} />;
+    return (
+      <SuspendedView
+        reason={bannedReason}
+        userId={currentUserId ?? undefined}
+      />
+    );
   }
 
   const alreadyReported = Boolean(roomId && reportedRoomId === roomId);
